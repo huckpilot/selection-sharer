@@ -23,19 +23,17 @@
     this.textSelection='';
     this.htmlSelection='';
 
-    this.appId = $('meta[property="fb:app_id"]').attr("content") || $('meta[property="fb:app_id"]').attr("value");
-    this.url2share = $('meta[property="og:url"]').attr("content") || $('meta[property="og:url"]').attr("value") || window.location.href;
 
     this.getSelectionText = function(sel) {
         var html = "", text = "";
-        sel = sel || window.getSelection();
+        var sel = sel || window.getSelection();
         if (sel.rangeCount) {
             var container = document.createElement("div");
             for (var i = 0, len = sel.rangeCount; i < len; ++i) {
                 container.appendChild(sel.getRangeAt(i).cloneContents());
             }
             text = container.textContent;
-            html = container.innerHTML;
+            html = container.innerHTML
         }
         self.textSelection = text;
         self.htmlSelection = html || text;
@@ -59,13 +57,11 @@
       var sel = window.getSelection();
       var selection = self.getSelectionText(sel);
 
-      if(sel.isCollapsed || selection.length < 10 || !selection.match(/ /))
+      if(sel.isCollapsed || selection.match(/ /))
         return self.hidePopunder();
 
-      if(self.popunder.classList.contains("fixed")) {
-          self.popunder.style.bottom = 0;
-          return self.popunder.style.bottom;
-      }
+      if(self.popunder.classList.contains("fixed"))
+        return self.popunder.style.bottom = 0;
 
       var range = sel.getRangeAt(0);
       var node = range.endContainer.parentNode; // The <p> where the selection ends
@@ -142,13 +138,15 @@
       setTimeout(function() {
         var sel = window.getSelection();
         var selection = self.getSelectionText(sel);
-        if(!sel.isCollapsed && selection && selection.length>10 && selection.match(/ /)) {
+        if(!sel.isCollapsed && selection && selection.match(/.+/)) {
           var range = sel.getRangeAt(0);
-          var topOffset = range.getBoundingClientRect().top - 5;
-          var top = topOffset + self.getPosition().y - self.$popover.height();
+          var topOffset = range.getBoundingClientRect().top - 25;
+          var leftOffset = range.getBoundingClientRect().left;
+          var rightOffset = range.getBoundingClientRect().right;
+          var top = topOffset + window.scrollY - self.$popover.height();
           var left = 0;
           if(e) {
-            left = e.pageX;
+            left = ((rightOffset + leftOffset) / 2) + (self.$popover.width() / 2) - self.$popover.width();
           }
           else {
             var obj = sel.anchorNode.parentNode;
@@ -157,16 +155,6 @@
               left += obj.offsetLeft;
             }
             while(obj = obj.offsetParent);
-          }
-          switch(self.selectionDirection(sel)) {
-            case 'forward':
-              left -= self.$popover.width();
-              break;
-            case 'backward':
-              left += self.$popover.width();
-              break;
-            default:
-              return;
           }
           self.$popover.removeClass("anim").css("top", top+10).css("left", left).show();
           setTimeout(function() {
@@ -199,7 +187,7 @@
       var anchors = document.getElementsByTagName('a');
       for(var i=0, len=anchors.length;i<len;i++) {
         if(anchors[i].attributes.href && typeof anchors[i].attributes.href.value == 'string') {
-          var matches = anchors[i].attributes.href.value.match(/^https?:\/\/twitter\.com\/([a-z0-9_]{1,20})/i);
+          var matches = anchors[i].attributes.href.value.match(/^https?:\/\/twitter\.com\/([a-z0-9_]{1,20})/i)
           if(matches && matches.length > 1 && ['widgets','intent'].indexOf(matches[1])==-1)
             usernames.push(matches[1]);
         }
@@ -214,6 +202,15 @@
     this.shareTwitter = function(e) {
       e.preventDefault();
 
+      if(!self.viaTwitterAccount) {
+        self.viaTwitterAccount = $('meta[name="twitter:site"]').attr("content") || $('meta[name="twitter:site"]').attr("value") || "";
+        self.viaTwitterAccount = self.viaTwitterAccount.replace(/@/,'');
+      }
+
+      if(!self.relatedTwitterAccounts) {
+        self.relatedTwitterAccounts = self.getRelatedTwitterAccounts();
+      }
+
       var text = "“"+self.smart_truncate(self.textSelection.trim(), 114)+"”";
       var url = 'http://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&related='+self.relatedTwitterAccounts+'&url='+encodeURIComponent(window.location.href);
 
@@ -224,31 +221,13 @@
       var w = 640, h=440;
       var left = (screen.width/2)-(w/2);
       var top = (screen.height/2)-(h/2)-100;
-      window.open(url, "share_twitter", 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
+      window.open(url, "share_twitter", 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+',       top='+top+', left='+left);
       self.hide();
       return false;
     };
 
-    this.shareFacebook = function(e) {
-      e.preventDefault();
-      var text = self.htmlSelection.replace(/<p[^>]*>/ig,'\n').replace(/<\/p>|  /ig,'').trim();
-
-      var url = 'https://www.facebook.com/dialog/feed?' +
-                'app_id='+self.appId +
-                '&display=popup'+
-                '&caption='+encodeURIComponent(text)+
-                '&link='+encodeURIComponent(self.url2share)+
-                '&href='+encodeURIComponent(self.url2share)+
-                '&redirect_uri='+encodeURIComponent(self.url2share);
-      var w = 640, h=440;
-      var left = (screen.width/2)-(w/2);
-      var top = (screen.height/2)-(h/2)-100;
-
-      window.open(url, "share_facebook", 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width='+w+', height='+h+', top='+top+', left='+left);
-    };
-
     this.shareEmail = function(e) {
-      var text = self.textSelection.replace(/<p[^>]*>/ig,'\n').replace(/<\/p>|  /ig,'').trim();
+      var text = self.htmlSelection.replace(/<p[^>]*>/ig,'\n').replace(/<\/p>|  /ig,'').trim();
       var email = {};
       email.subject = encodeURIComponent("Quote from "+document.title);
       email.body = encodeURIComponent("“"+text+"”")+"%0D%0A%0D%0AFrom: "+document.title+"%0D%0A"+window.location.href;
@@ -262,8 +241,7 @@
                        + '  <div id="selectionSharerPopover-inner">'
                        + '    <ul>'
                        + '      <li><a class="action tweet" href="" title="Share this selection on Twitter" target="_blank">Tweet</a></li>'
-                       + '      <li><a class="action facebook" href="" title="Share this selection on Facebook" target="_blank">Facebook</a></li>'
-                       + '      <li><a class="action email" href="" title="Share this selection by email" target="_blank"><svg width="20" height="20"><path stroke="%23FFF" stroke-width="6" d="m16,25h82v60H16zl37,37q4,3 8,0l37-37M16,85l30-30m22,0 30,30"/></svg></a></li>'
+                       + '      <li><a class="action email" href="" title="Share this selection by email" target="_blank"><svg width="20" height="20"><path stroke="#FFF" stroke-width="6" d="m16,25h82v60H16zl37,37q4,3 8,0l37-37M16,85l30-30m22,0 30,30"/></svg></a></li>'
                        + '    </ul>'
                        + '  </div>'
                        + '  <div class="selectionSharerPopover-clip"><span class="selectionSharerPopover-arrow"></span></div>'
@@ -274,27 +252,21 @@
                        + '    <label>Share this selection</label>'
                        + '    <ul>'
                        + '      <li><a class="action tweet" href="" title="Share this selection on Twitter" target="_blank">Tweet</a></li>'
-                       + '      <li><a class="action facebook" href="" title="Share this selection on Facebook" target="_blank">Facebook</a></li>'
-                       + '      <li><a class="action email" href="" title="Share this selection by email" target="_blank"><svg width="20" height="20"><path stroke="%23FFF" stroke-width="6" d="m16,25h82v60H16zl37,37q4,3 8,0l37-37M16,85l30-30m22,0 30,30"/></svg></a></li>'
+                       + '      <li><a class="action email" href="" title="Share this selection by email" target="_blank"><svg width="20" height="20"><path stroke="#FFF" stroke-width="6" d="m16,25h82v60H16zl37,37q4,3 8,0l37-37M16,85l30-30m22,0 30,30"/></svg></a></li>'
                        + '    </ul>'
                        + '  </div>'
                        + '</div>';
+
       self.$popover = $(popoverHTML);
       self.$popover.find('a.tweet').click(self.shareTwitter);
-      self.$popover.find('a.facebook').click(self.shareFacebook);
       self.$popover.find('a.email').click(self.shareEmail);
 
       $('body').append(self.$popover);
 
       self.$popunder = $(popunderHTML);
       self.$popunder.find('a.tweet').click(self.shareTwitter);
-      self.$popunder.find('a.facebook').click(self.shareFacebook);
       self.$popunder.find('a.email').click(self.shareEmail);
       $('body').append(self.$popunder);
-
-      if (self.appId && self.url2share){
-        $(".selectionSharer a.facebook").css('display','inline-block');
-      }
     };
 
     this.setElements = function(elements) {
@@ -318,15 +290,6 @@
       self.lastSelectionChanged = setTimeout(function() {
         self.showPopunder(e);
       }, 300);
-    };
-
-    this.getPosition = function() {
-      var supportPageOffset = window.pageXOffset !== undefined;
-      var isCSS1Compat = ((document.compatMode || "") === "CSS1Compat");
-
-      var x = supportPageOffset ? window.pageXOffset : isCSS1Compat ? document.documentElement.scrollLeft : document.body.scrollLeft;
-      var y = supportPageOffset ? window.pageYOffset : isCSS1Compat ? document.documentElement.scrollTop : document.body.scrollTop;
-      return {x: x, y: y};
     };
 
     this.render();
